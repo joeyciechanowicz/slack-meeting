@@ -192,9 +192,17 @@ module.exports.next = function (req, res, pool) {
                         addDiscussedCard(meeting.meeting_id, nextIssue.id, pool),
                         getGithubCardContent(nextIssue.content_url)
                     ]).then(([, content]) => {
-                        const text = `*${content.title}*\n${content.html_url}`;
                         return sendResponse({
-                            text: text,
+                            attachments: [
+                                {
+                                    "fallback": content.title,
+                                    "color": "#36a64f",
+                                    "author_name": nextIssue.creator.login,
+                                    "author_icon": nextIssue.creator.avatar_url,
+                                    "title": content.title,
+                                    "title_link": content.html_url
+                                }
+                            ],
                             response_type: 'in_channel'
                         }, req.body.response_url);
                     });
