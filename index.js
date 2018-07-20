@@ -23,8 +23,8 @@ const {connectionName, dbUser, dbPass, dbName, slackToken,} = config;
 
 const pool = mysql.createPool({
     connectionLimit: 1,
-    // socketPath: '/cloudsql/' + connectionName,
-    host: 'localhost',
+    socketPath: '/cloudsql/' + connectionName,
+    // host: 'localhost',
     user: dbUser,
     password: dbPass,
     database: dbName
@@ -41,6 +41,7 @@ function verifyWebhook(body) {
 exports.meeting = (req, res) => {
     return Promise.resolve()
         .then(() => {
+            console.log(req.body);
             if (req.method !== 'POST') {
                 const error = new Error('Only POST requests are accepted');
                 error.code = 405;
@@ -49,7 +50,6 @@ exports.meeting = (req, res) => {
 
             verifyWebhook(req.body);
 
-            console.log(req.body);
 
             if (req.body.text.indexOf('start') !== -1) {
                 return start(req, res, pool);
@@ -61,7 +61,15 @@ exports.meeting = (req, res) => {
                 throw new Error(`Invalid command: \`${req.body.text}\``);
             }
         })
+        .then(() => {
+            res.status(200).end();
+        })
         .catch(err => {
-            res.json({formattedError: err});
+            res.json(
+                {
+                    response_type: 'ephemeral',
+                    text: err.message
+                }
+            );
         });
 };

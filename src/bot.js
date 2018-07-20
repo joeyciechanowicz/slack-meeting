@@ -111,48 +111,63 @@ function getGithubCardContent(cardUrl) {
     });
 }
 
-module.exports.start = function (req, res, pool) {
-    // - check if meeting already started and show error if so
-    //     - Print out *Meeting starting*
-    // - add meeting to meetings table
+function sendResponse(payload, url) {
+    return new Promise((resolve, reject) => {
+        request.post({
+            url: url,
+            json: true,
+            body: payload
+        }, (error, response, body) => {
+            if (error) {
+                return reject(error);
+            } else if (response.statusCode !== 200) {
+                return reject('Unexpected response code calling slack: ' + response.statusCode);
+            }
 
-    // Check if meeting already started
-    return getMeeting(req.body.channel, pool)
+            resolve();
+        });
+    });
+}
+
+module.exports.start = function (req, res, pool) {
+    return getMeeting(req.body.channel_name, pool)
         .then((meeting) => {
             if (meeting.length > 0) {
                 const message = 'A meeting has already been started, use `/meeting end` to finish the previous meeting first';
-                res.json({
-                    message: message
-                });
                 throw new Error(message);
             }
         })
         .then(() => Promise.all([
             getGithubCards(),
-            addMeeting(req.body.channel, pool)
+            addMeeting(req.body.channel_name, pool)
         ]))
         .then(([cards,]) => {
             if (cards.length === 0) {
-                const message = 'Meeting started. No cards currently, please create them now.';
-                res.json({
-                    message: message
-                });
-                throw new Error(message);
+                const message = ':star: :star: :star: :star: :star: :star: :star: :star: \n' +
+                    '        *FE Open Space Started* \n' +
+                    ':star: :star: :star: :star: :star: :star: :star: :star:\n\n _No cards currently, please create them now._';
+
+                return sendResponse({
+                    text: message,
+                    response_type: 'in_channel'
+                }, req.body.response_url);
             }
-            res.json({
-                message: `Meeting started. We have ${cards.length} card${cards.length > 1 ? 's' : ''} to discuss.`
-            });
+
+            const message = ':star: :star: :star: :star: :star: :star: :star: :star: \n' +
+                '        *FE Open Space Started* \n' +
+                `:star: :star: :star: :star: :star: :star: :star: :star:\n\n _We have ${cards.length} card${cards.length > 1 ? 's' : ''} to discuss._`;
+            return sendResponse({
+                text: message,
+                response_type: 'in_channel'
+            }, req.body.response_url);
         });
 };
 
 module.exports.next = function (req, res, pool) {
-    return getMeeting(req.body.channel, pool)
+    return getMeeting(req.body.channel_name, pool)
         .then((meetings) => {
             if (meetings.length !== 1) {
                 const message = 'A meeting has not yet started. Please use `/meeting start`';
-                res.json({
-                    message: message
-                });
                 throw new Error(message);
             }
             const meeting = meetings[0];
@@ -163,16 +178,13 @@ module.exports.next = function (req, res, pool) {
             ]).then(([dbCards, githubCards]) => {
                 if (githubCards.length === 0) {
                     const message = 'No cards to discuss. Please add cards or use `/meeting end` to finish';
-                    res.json({
-                        message: message
-                    });
                     throw new Error(message);
                 }
                 const issuesToDisucss = githubCards.filter((githubCard) => dbCards.findIndex((dbCard) => dbCard.github_id === githubCard.id) === -1);
                 if (issuesToDisucss.length === 0) {
-                    const message = 'All cards have been discussed :party:. Use `/meeting end` to finish';
+                    const message = 'All cards have been discussed :party: Use `/meeting end` to finish';
                     res.json({
-                        message: message
+                        text: message
                     });
                 } else {
                     const nextIssue = issuesToDisucss[0];
@@ -180,7 +192,11 @@ module.exports.next = function (req, res, pool) {
                         addDiscussedCard(meeting.meeting_id, nextIssue.id, pool),
                         getGithubCardContent(nextIssue.content_url)
                     ]).then(([, content]) => {
-                        res.json({message: `*${content.title}*\r\n${content.html_url}`})
+                        const text = `*${content.title}*\n${content.html_url}`;
+                        return sendResponse({
+                            text: text,
+                            response_type: 'in_channel'
+                        }, req.body.response_url);
                     });
                 }
             });
@@ -188,18 +204,24 @@ module.exports.next = function (req, res, pool) {
 };
 
 module.exports.end = function (req, res, pool) {
-    return getMeeting(req.body.channel, pool)
+    return getMeeting(req.body.channel_name, pool)
         .then((meetings) => {
             if (meetings.length !== 1) {
                 const message = 'A meeting has not yet started. Please use `/meeting start`';
                 res.json({
-                    message: message
+                    text: message
                 });
                 throw new Error(message);
             }
             return meeting = meetings[0];
         }).then(meeting => deleteMeeting(meeting.meeting_id, pool))
         .then(() => {
-            res.json({message: 'Meeting Finished!'});
+            const message = ':star: :star: :star: :star: :star: :star: :star: :star: \n' +
+                '        *FE Open Space Ended!* \n' +
+                `:star: :star: :star: :star: :star: :star: :star: :star:\n\n _Well done everyone_ :smile:`;
+            return sendResponse({
+                text: message,
+                response_type: 'in_channel'
+            }, req.body.response_url);
         });
 };
