@@ -1,8 +1,25 @@
 const config = require('./config.json');
 const googleapis = require('googleapis');
 const mysql = require('mysql');
+const {start, next, end} = require('./src/bot');
 
 const {connectionName, dbUser, dbPass, dbName, slackToken,} = config;
+
+/*
+/meeting start
+ - check if meeting already started and show error if so
+ - Print out *Meeting starting*
+ - add meeting to meetings table
+ - post first issue & stick link to discussion on the ticket
+ - add first issue to db table of discussed issues
+/meeting next
+  - next issue & stick link to discussion on the ticket
+ - add next issue to db table of discussed issues
+/meeting end
+ - delete meeting & seen issues
+
+ */
+
 
 const pool = mysql.createPool({
     connectionLimit: 1,
@@ -32,8 +49,19 @@ exports.meeting = (req, res) => {
 
             verifyWebhook(req.body);
 
-            pool.query('SELECT * from meetings', (error, results, fields) => {
-                res.json({error, results});
-            });
+            console.log(req.body);
+
+            if (req.body.text.indexOf('start') !== -1) {
+                return start(req, res, pool);
+            } else if (req.body.text.indexOf('next') !== -1) {
+                return next(req, res, pool);
+            } else if (req.body.text.indexOf('end') !== -1) {
+                return end(req, res, pool);
+            } else {
+                throw new Error(`Invalid command: \`${req.body.text}\``);
+            }
+        })
+        .catch(err => {
+            res.json({formattedError: err});
         });
 };
