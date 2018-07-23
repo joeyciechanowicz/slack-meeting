@@ -41,7 +41,6 @@ function verifyWebhook(body) {
 exports.meeting = (req, res) => {
     return Promise.resolve()
         .then(() => {
-            console.log(req.body);
             if (req.method !== 'POST') {
                 const error = new Error('Only POST requests are accepted');
                 error.code = 405;
@@ -49,7 +48,6 @@ exports.meeting = (req, res) => {
             }
 
             verifyWebhook(req.body);
-
 
             if (req.body.text.indexOf('start') !== -1) {
                 return start(req, res, pool);
@@ -72,4 +70,18 @@ exports.meeting = (req, res) => {
                 }
             );
         });
+};
+
+exports.interaction = (req, res) => {
+    if (req.body.type !== 'message_action' || req.body.callback_id !== 'reopen' || req.body.attachments.length !== 1) {
+        req.status(200).end();
+        return;
+    }
+
+    console.log(req.body.attachments[0]);
+
+
+    res.json({
+        text: 'Reopened issue'
+    });
 };

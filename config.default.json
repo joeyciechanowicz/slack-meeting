@@ -1,0 +1,11 @@
+{
+  "slackToken": "your-slack-app-token",
+  "dbName": "",
+  "dbPass": "",
+  "dbUser": "",
+  "connectionName": "",
+  "githubClientId": "",
+  "githubClientSecret": "",
+  "githubToken": "",
+  "columnId": ""
+}

@@ -195,12 +195,12 @@ module.exports.next = function (req, res, pool) {
                         return sendResponse({
                             attachments: [
                                 {
-                                    "fallback": content.title,
-                                    "color": "#36a64f",
-                                    "author_name": nextIssue.creator.login,
-                                    "author_icon": nextIssue.creator.avatar_url,
-                                    "title": content.title,
-                                    "title_link": content.html_url
+                                    'fallback': content.title,
+                                    'color': '#36a64f',
+                                    'author_name': nextIssue.creator.login,
+                                    'author_icon': nextIssue.creator.avatar_url,
+                                    'title': content.title,
+                                    'title_link': content.html_url
                                 }
                             ],
                             response_type: 'in_channel'

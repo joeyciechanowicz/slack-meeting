@@ -10,7 +10,7 @@
     "emulator:stop": "./node_modules/.bin/functions stop",
     "call": "./node_modules/.bin/functions call meeting --data='{\"token\":\"not-a-real-token\"}'"
   },
-  "author": "",
+  "author": "Joey Ciechechanowicz & Ben Clark",
   "license": "ISC",
   "dependencies": {
     "googleapis": "^32.0.0",
