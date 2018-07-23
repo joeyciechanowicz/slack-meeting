@@ -2,3 +2,4 @@ node_modules/
 .idea/
 slack-meeting-1c6816b246b1.json
 config.json
+test-harness.js
