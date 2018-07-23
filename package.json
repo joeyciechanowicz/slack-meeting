@@ -11,7 +11,7 @@
     "call": "./node_modules/.bin/functions call meeting --data='{\"token\":\"not-a-real-token\"}'"
   },
   "author": "Joey Ciechechanowicz & Ben Clark",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "googleapis": "^32.0.0",
     "mysql": "^2.15.0",
