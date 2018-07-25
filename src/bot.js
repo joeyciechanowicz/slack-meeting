@@ -116,17 +116,17 @@ function getArchiveLink(slackMessage, ts) {
 	});
 }
 
-function postCommentOnIssue(slackMessage, issue, ts) {
+function postCommentOnIssue(slackMessage, issueContent, ts) {
 	return getArchiveLink(slackMessage, ts)
 		.then(permalink => {
 
 			const requestBody = {
-				body: permalink
+				body: `Discussed on ${(new Date()).toDateString()}\n${permalink}`
 			};
 
 			return new Promise((resolve, reject) => {
 				request.post({
-					url: `https://api.github.com/repos/springernature/frontend-open-space/issues/${issue.id}/comments`,
+					url: `https://api.github.com/repos/springernature/frontend-open-space/issues/${issueContent.number}/comments`,
 					json: true,
 					body: requestBody,
 					headers: {
@@ -141,8 +141,8 @@ function postCommentOnIssue(slackMessage, issue, ts) {
 					if (error) {
 						reject(error);
 						return;
-					} else if (response.statusCode !== 200) {
-						reject(`Error posting comment to https://api.github.com/repos/springernature/frontend-open-space/issues/${issue.id}/comments: ${response.statusCode}`);
+					} else if (response.statusCode !== 201) {
+						reject(`Error posting comment: ${response.statusCode}`);
 						return;
 					}
 
@@ -223,23 +223,24 @@ function postIssue(slackMessage, meeting, nextIssue, pool, requiresUpdateMessage
 		addDiscussedCard(meeting.meeting_id, nextIssue.id, pool),
 		getGithubCardContent(nextIssue.content_url)
 	]).then(([, content]) => sendMessage(slackMessage, {
-		attachments: [
-			{
-				'fallback': content.title,
-				'color': requiresUpdateMessage ? '#3648a6' : '#36a64f',
-				'author_name': nextIssue.creator.login,
-				'author_icon': nextIssue.creator.avatar_url,
-				'title': content.title,
-				'title_link': content.html_url,
-				'text': requiresUpdateMessage ? 'This issue requires an update' : ''
-			}
-		]
-	}).then((res) => {
-		return Promise.all([sendMessage(slackMessage, {
-			text: 'Discuss here',
-			thread_ts: res.ts
-		}) /* , postCommentOnIssue(slackMessage, nextIssue, res.ts) */]);
-	}));
+			attachments: [
+				{
+					'fallback': content.title,
+					'color': requiresUpdateMessage ? '#3648a6' : '#36a64f',
+					'author_name': nextIssue.creator.login,
+					'author_icon': nextIssue.creator.avatar_url,
+					'title': content.title,
+					'title_link': content.html_url,
+					'text': requiresUpdateMessage ? 'This issue requires an update' : ''
+				}
+			]
+		}).then((res) => {
+			return Promise.all([sendMessage(slackMessage, {
+				text: 'Discuss here',
+				thread_ts: res.ts
+			}), postCommentOnIssue(slackMessage, content, res.ts)]);
+		})
+	);
 }
 
 module.exports.sendMessage = sendMessage;

@@ -4,7 +4,6 @@ const {meeting, meetingSub} = require('.');
 const requestStub = {
 	method: 'POST',
 	body: {
-		
 	}
 };
 
