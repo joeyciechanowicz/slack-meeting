@@ -1,13 +1,21 @@
 const config = require('./config.json');
 const mysql = require('mysql');
 const PubSub = require('@google-cloud/pubsub');
-const {start, next, end, abort, sendResponse} = require('./src/bot');
+const request = require('request');
+const {start, next, end, abort, sendMessage} = require('./src/bot');
 
-const {connectionName, dbUser, dbPass, dbName, slackToken} = config;
+const {connectionName, dbUser, dbPass, dbName, slackToken, slackClientId, slackClientSecret} = config;
 
 const pubsub = new PubSub();
 
-let pool;
+const pool = mysql.createPool({
+	connectionLimit: 1,
+	socketPath: '/cloudsql/' + connectionName,
+	// host: 'localhost',
+	user: dbUser,
+	password: dbPass,
+	database: dbName
+});
 
 function verifyWebhook(body) {
 	if (!body || body.token !== slackToken) {
@@ -18,53 +26,51 @@ function verifyWebhook(body) {
 }
 
 function run(slackMessage) {
-	if (!pool) {
-		pool = mysql.createPool({
-			connectionLimit: 1,
-			socketPath: '/cloudsql/' + connectionName,
-			// host: 'localhost',
-			user: dbUser,
-			password: dbPass,
-			database: dbName
-		});
-	}
-
 	if (slackMessage.text.indexOf('start') !== -1) {
 		return start(slackMessage, pool);
-	} else if (slackMessage.text.text.indexOf('next') !== -1) {
+	} else if (slackMessage.text.indexOf('next') !== -1) {
 		return next(slackMessage, pool);
-	} else if (slackMessage.text.text.indexOf('end') !== -1) {
+	} else if (slackMessage.text.indexOf('end') !== -1) {
 		return end(slackMessage, pool);
-	} else if (slackMessage.text.text.indexOf('abort') !== -1) {
+	} else if (slackMessage.text.indexOf('abort') !== -1) {
 		return abort(slackMessage, pool);
 	} else {
 		throw Promise.reject(`Invalid command: ${slackMessage.text}`);
 	}
 }
 
-exports.meetingSub = (event, callback) => {
-	const pubsubMessage = event.data;
-
-	// We're just going to log the message to prove that it worked!
-	const slackMessage = JSON.parse(Buffer.from(pubsubMessage.data, 'base64').toString());
-
-	return run(slackMessage)
-		.then(() => callback())
-		.catch(e => {
-			if (slackMessage.response_url) {
-				sendResponse({
-						message: e.message,
-						response_type: 'ephemeral'
-					}, slackMessage.response_url
-				).then(() => callback())
-					.catch((e2) => {
-						console.error(e2);
-						callback();
-					});
-			} else {
-				callback();
+function getToken(teamId) {
+	return new Promise((resolve, reject) => {
+		pool.query('SELECT * from auth_tokens where team_id = ?', [teamId], (error, results) => {
+			if (error) {
+				throw error;
 			}
 
+			resolve(results);
+		});
+	});
+}
+
+function saveToken(teamId, token) {
+	return new Promise((resolve, reject) => {
+		pool.query('INSERT INTO auth_tokens (team_id, token) VALUE (?, ?)', [teamId, token], (error, results) => {
+			if (error) {
+				throw error;
+			}
+
+			resolve(results);
+		});
+	});
+}
+
+exports.meetingSub = (event) => {
+	const pubsubMessage = event.data;
+
+	const slackMessage = JSON.parse(Buffer.from(pubsubMessage, 'base64').toString());
+
+	return run(slackMessage)
+		.catch(e => {
+			console.error(e);
 		});
 };
 
@@ -113,4 +119,26 @@ exports.interaction = (req, res) => {
 	res.json({
 		text: 'Reopened issue'
 	});
+};
+
+exports.authRedirect = (req, res) => {
+	const options = {
+		uri: 'https://slack.com/api/oauth.access?code='
+		+ req.query.code +
+		'&client_id=' + slackClientId +
+		'&client_secret=' + slackClientSecret,
+		method: 'GET'
+	};
+
+	request(options, (error, response, body) => {
+		const JSONresponse = JSON.parse(body)
+		if (!JSONresponse.ok) {
+			res.send('Error encountered: \n' + JSON.stringify(JSONresponse)).status(200).end()
+		} else {
+			saveToken(JSONresponse.team_id, JSONresponse.access_token)
+				.then(() => {
+					res.send('Success!');
+				});
+		}
+	})
 };
