@@ -111,26 +111,27 @@ function getGithubCardContent(cardUrl) {
     });
 }
 
-function sendResponse(payload, url) {
-    return new Promise((resolve, reject) => {
-        request.post({
-            url: url,
-            json: true,
-            body: payload
-        }, (error, response, body) => {
-            if (error) {
-                return reject(error);
-            } else if (response.statusCode !== 200) {
-                return reject('Unexpected response code calling slack: ' + response.statusCode);
-            }
+function sendMessage(slackMessage, payload) {
+	return new Promise((resolve, reject) => {
+		request.post({
+			url: url,
+			json: true,
+			body: payload
+		}, (error, response, body) => {
+			if (error) {
+				return reject(error);
+			} else if (response.statusCode !== 200) {
+				return reject(`Unexpected response code calling slack: ${response.statusCode}. Body: ${body}`);
+			}
 
-            resolve();
-        });
-    });
+			resolve();
+		});
+	});
 }
+module.exports.sendResponse = sendResponse;
 
-module.exports.start = function (req, res, pool) {
-    return getMeeting(req.body.channel_name, pool)
+module.exports.start = function (slackMessage, pool) {
+    return getMeeting(slackMessage.channel_name, pool)
         .then((meeting) => {
             if (meeting.length > 0) {
                 const message = 'A meeting has already been started, use `/meeting end` to finish the previous meeting first';
@@ -139,7 +140,7 @@ module.exports.start = function (req, res, pool) {
         })
         .then(() => Promise.all([
             getGithubCards(),
-            addMeeting(req.body.channel_name, pool)
+            addMeeting(slackMessage.channel_name, pool)
         ]))
         .then(([cards,]) => {
             if (cards.length === 0) {
@@ -150,7 +151,7 @@ module.exports.start = function (req, res, pool) {
                 return sendResponse({
                     text: message,
                     response_type: 'in_channel'
-                }, req.body.response_url);
+                }, slackMessage.response_url);
             }
 
             const message = ':star: :star: :star: :star: :star: :star: :star: :star: \n' +
@@ -159,12 +160,12 @@ module.exports.start = function (req, res, pool) {
             return sendResponse({
                 text: message,
                 response_type: 'in_channel'
-            }, req.body.response_url);
+            }, slackMessage.response_url);
         });
 };
 
-module.exports.next = function (req, res, pool) {
-    return getMeeting(req.body.channel_name, pool)
+module.exports.next = function (slackMessage, pool) {
+    return getMeeting(slackMessage.channel_name, pool)
         .then((meetings) => {
             if (meetings.length !== 1) {
                 const message = 'A meeting has not yet started. Please use `/meeting start`';
@@ -183,9 +184,10 @@ module.exports.next = function (req, res, pool) {
                 const issuesToDisucss = githubCards.filter((githubCard) => dbCards.findIndex((dbCard) => dbCard.github_id === githubCard.id) === -1);
                 if (issuesToDisucss.length === 0) {
                     const message = 'All cards have been discussed :party: Use `/meeting end` to finish';
-                    res.json({
+                    return sendResponse({
+	                    response_type: 'ephemeral',
                         text: message
-                    });
+                    }, slackMessage.response_url);
                 } else {
                     const nextIssue = issuesToDisucss[0];
                     return Promise.all([
@@ -204,21 +206,18 @@ module.exports.next = function (req, res, pool) {
                                 }
                             ],
                             response_type: 'in_channel'
-                        }, req.body.response_url);
+                        }, slackMessage.response_url);
                     });
                 }
             });
         });
 };
 
-module.exports.end = function (req, res, pool) {
-    return getMeeting(req.body.channel_name, pool)
+module.exports.end = function (slackMessage, pool) {
+    return getMeeting(slackMessage.channel_name, pool)
         .then((meetings) => {
             if (meetings.length !== 1) {
                 const message = 'A meeting has not yet started. Please use `/meeting start`';
-                res.json({
-                    text: message
-                });
                 throw new Error(message);
             }
             return meeting = meetings[0];
@@ -230,6 +229,24 @@ module.exports.end = function (req, res, pool) {
             return sendResponse({
                 text: message,
                 response_type: 'in_channel'
-            }, req.body.response_url);
+            }, slackMessage.response_url);
         });
+};
+
+module.exports.abort = function (slackMessage, pool) {
+	return getMeeting(slackMessage.channel_name, pool)
+		.then((meetings) => {
+			if (meetings.length !== 1) {
+				const message = 'A meeting has not yet started. Please use `/meeting start`';
+				throw new Error(message);
+			}
+			return meeting = meetings[0];
+		}).then(meeting => deleteMeeting(meeting.meeting_id, pool))
+		.then(() => {
+			const message = 'Meeting ended';
+			return sendResponse({
+				text: message,
+				response_type: 'ephemeral'
+			}, slackMessage.response_url);
+		});
 };

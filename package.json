@@ -13,6 +13,7 @@
   "author": "Joey Ciechechanowicz & Ben Clark",
   "license": "MIT",
   "dependencies": {
+    "@google-cloud/pubsub": "^0.19.0",
     "googleapis": "^32.0.0",
     "mysql": "^2.15.0",
     "request": "^2.87.0"

@@ -4,7 +4,7 @@ const {meeting} = require('.');
 const requestStub = {
     method: 'POST',
     body: {
-        token: '',
+        token: 'n8EgqXv7JLuijvrMhOCwYXNJ',
         team_id: '',
         team_domain: '',
         channel_id: '',
