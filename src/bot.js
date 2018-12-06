@@ -265,10 +265,10 @@ module.exports.start = function (slackMessage, pool) {
 
 				return sendMessage(slackMessage, {text: message});
 			}
-
+			
 			const message = ':star: :star: :star: :star: :star: :star: :star: :star: \n' +
 				'        *FE Open Space Started* \n' +
-				`:star: :star: :star: :star: :star: :star: :star: :star:\n\n _We have ${cards[0].length} card${cards[0].length > 1 ? 's' : ''} to discuss, and ${cards[1].length} card${cards[1].length > 1 ? 's' : ''}_ needing an update`;
+				`:star: :star: :star: :star: :star: :star: :star: :star:\n\n _We have ${cards[0].length} card${cards[0].length > 1 ? 's' : ''} to discuss, and ${cards[1].length} card${cards[1].length !== 1 ? '' : 's'}_ needing an update`;
 			return sendMessage(slackMessage, {text: message});
 		}).catch(e => {
 			return sendMessage(slackMessage, {text: e}, true);
@@ -327,7 +327,7 @@ module.exports.end = function (slackMessage, pool) {
 		.then(() => {
 			const message = ':star: :star: :star: :star: :star: :star: :star: :star: \n' +
 				'        *FE Open Space Ended!* \n' +
-				`:star: :star: :star: :star: :star: :star: :star: :star:\n\n _Well done everyone_ :smile:`;
+				`:star: :star: :star: :star: :star: :star: :star: :star:\n\n _Well done everyone, especially Alex_ :eyeroll:`;
 			return sendMessage(slackMessage, {text: message});
 		})
 		.catch(e => {
